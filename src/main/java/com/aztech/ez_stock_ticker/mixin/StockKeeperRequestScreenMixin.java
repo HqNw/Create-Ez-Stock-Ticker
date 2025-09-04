@@ -45,10 +45,6 @@ public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContaine
 
     @Shadow public EditBox searchBox;
 
-    @Shadow public boolean refreshSearchNextTick;
-
-    @Shadow public boolean moveToTopNextTick;
-
     public StockKeeperRequestScreenMixin(StockKeeperRequestMenu container, Inventory inv, Component title) {
         super(container, inv, title);
     }
@@ -57,11 +53,7 @@ public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContaine
 
     @Shadow public AddressEditBox addressBox;
 
-    @Shadow private int itemsX;
-
     @Shadow @Final private int cols;
-
-    @Shadow @Final private int colWidth;
 
     @Shadow private int windowHeight;
 
@@ -69,33 +61,11 @@ public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContaine
 
     @Shadow protected abstract int getMaxScroll();
 
-    @Shadow private boolean scrollHandleActive;
-
-    @Shadow private boolean isAdmin;
-
     @Shadow public LerpedFloat itemScroll;
-
-    @Shadow private int lockY;
-
-    @Shadow private int lockX;
-
-    @Shadow private boolean isLocked;
 
     @Shadow private StockTickerBlockEntity blockEntity;
 
-    @Shadow protected abstract void sendIt();
-
-    @Shadow protected abstract boolean isConfirmHovered(int mouseX, int mouseY);
-
-    @Shadow private int itemsY;
-
-    @Shadow public List<StockKeeperRequestScreen.CategoryEntry> categories;
-
     @Shadow public List<List<BigItemStack>> displayedItems;
-
-    @Shadow @Final private int rowHeight;
-
-    @Shadow private Set<Integer> hiddenCategories;
 
     @Shadow @Final private Couple<Integer> noneHovered;
 
@@ -162,7 +132,7 @@ public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContaine
         Couple<Integer> hoveredSlot = getHoveredSlot((int) mouseX, (int) mouseY);
         boolean noHover = hoveredSlot == noneHovered;
 
-        if (noHover || hoveredSlot.getFirst() >= 0 && !hasShiftDown() && getMaxScroll() != 0) {
+        if (noHover || hoveredSlot.getFirst() >= 0 && !hasShiftDown() && !hasControlDown() && getMaxScroll() != 0) {
             int maxScroll = getMaxScroll();
             int direction = (int) (Math.ceil(Math.abs(scrollY)) * -Math.signum(scrollY));
             float newTarget = Mth.clamp(Math.round(itemScroll.getChaseTarget() + direction), 0, maxScroll);
