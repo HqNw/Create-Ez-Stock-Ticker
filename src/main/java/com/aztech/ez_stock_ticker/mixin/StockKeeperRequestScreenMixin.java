@@ -4,13 +4,11 @@ import com.aztech.ez_stock_ticker.ClientConfig;
 import com.aztech.ez_stock_ticker.CreateEasyStockTicker;
 import com.llamalad7.mixinextras.sugar.Local;
 import com.llamalad7.mixinextras.sugar.ref.LocalIntRef;
-import com.llamalad7.mixinextras.sugar.ref.LocalRef;
 import com.simibubi.create.AllSoundEvents;
 import com.simibubi.create.content.logistics.AddressEditBox;
 import com.simibubi.create.content.logistics.BigItemStack;
 import com.simibubi.create.content.logistics.stockTicker.*;
 import com.simibubi.create.foundation.gui.AllGuiTextures;
-import com.simibubi.create.foundation.gui.ScreenWithStencils;
 import com.simibubi.create.foundation.gui.menu.AbstractSimiContainerScreen;
 import net.createmod.catnip.animation.LerpedFloat;
 import net.createmod.catnip.data.Couple;
@@ -30,15 +28,12 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 
 import javax.annotation.Nullable;
 import java.util.List;
-import java.util.Set;
 
 @Mixin(value = StockKeeperRequestScreen.class, remap = false)
-public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContainerScreen<StockKeeperRequestMenu>
-    implements ScreenWithStencils {
+public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContainerScreen<StockKeeperRequestMenu> {
 
     @Unique
     private static final ResourceLocation STOCK_KEEPER_PATCH = CreateEasyStockTicker.asResource("textures/gui/stock_keeper_patch.png");
@@ -201,7 +196,7 @@ public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContaine
         return true;
     }
 
-    @Inject(method = "renderBg", at = @At(value = "INVOKE", target = "Lnet/createmod/catnip/gui/UIRenderHelper;swapAndBlitColor(Lcom/mojang/blaze3d/pipeline/RenderTarget;Lcom/mojang/blaze3d/pipeline/RenderTarget;)V", shift = At.Shift.BEFORE))
+    @Inject(method = "renderBg", at = @At(value = "INVOKE", target = "Lcom/simibubi/create/foundation/gui/AllGuiTextures;render(Lnet/minecraft/client/gui/GuiGraphics;II)V", ordinal = 2, shift = At.Shift.AFTER))
     protected void renderForeground(GuiGraphics graphics, float partialTicks, int mouseX, int mouseY, CallbackInfo ci) {
         //Render the "EZ" icon, shift the uv y by 7 px if enabled, 0 of enabled
         boolean isEzEnabled = ClientConfig.CONFIG.isEzStockTickerEnabled.get(); //Replace with client side config
