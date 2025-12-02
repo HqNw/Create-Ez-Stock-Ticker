@@ -1,4 +1,6 @@
 ---
 1.21.1-1.0.3: |
   - Updated ru_ru translation, thank you to @VladisCrafter on github!
+1.21.1-1.0.4: |
+  - Fixed compat with Create: Factory Logistics
 ...

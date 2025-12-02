@@ -1,17 +1,16 @@
+
 package com.aztech.ez_stock_ticker.mixin;
 
 import com.aztech.ez_stock_ticker.ClientConfig;
 import com.aztech.ez_stock_ticker.CreateEasyStockTicker;
+import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;
 import com.llamalad7.mixinextras.sugar.ref.LocalIntRef;
-import com.simibubi.create.AllSoundEvents;
-import com.simibubi.create.content.logistics.AddressEditBox;
 import com.simibubi.create.content.logistics.BigItemStack;
 import com.simibubi.create.content.logistics.stockTicker.*;
 import com.simibubi.create.foundation.gui.AllGuiTextures;
 import com.simibubi.create.foundation.gui.menu.AbstractSimiContainerScreen;
-import net.createmod.catnip.animation.LerpedFloat;
-import net.createmod.catnip.data.Couple;
 import net.createmod.catnip.data.Pair;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
@@ -19,9 +18,7 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundEvents;
-import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.item.ItemStack;
 import org.lwjgl.glfw.GLFW;
 import org.spongepowered.asm.mixin.*;
 import org.spongepowered.asm.mixin.injection.At;
@@ -29,7 +26,6 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import javax.annotation.Nullable;
 import java.util.List;
 
 @Mixin(value = StockKeeperRequestScreen.class, remap = false)
@@ -44,33 +40,7 @@ public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContaine
         super(container, inv, title);
     }
 
-    @Shadow protected abstract void syncJEI();
-
-    @Shadow public AddressEditBox addressBox;
-
-    @Shadow @Final private int cols;
-
-    @Shadow private int windowHeight;
-
-    @Shadow protected abstract Couple<Integer> getHoveredSlot(int x, int y);
-
-    @Shadow protected abstract int getMaxScroll();
-
-    @Shadow public LerpedFloat itemScroll;
-
-    @Shadow private StockTickerBlockEntity blockEntity;
-
-    @Shadow public List<List<BigItemStack>> displayedItems;
-
-    @Shadow @Final private Couple<Integer> noneHovered;
-
-    @Shadow public List<BigItemStack> itemsToOrder;
-
-    @Shadow public List<CraftableBigItemStack> recipesToOrder;
-
-    @Shadow public abstract void requestCraftable(CraftableBigItemStack cbis, int requestedDifference);
-
-    @Shadow @Nullable protected abstract BigItemStack getOrderForItem(ItemStack stack);
+    @Shadow int windowHeight;
 
     @Shadow @Final private static AllGuiTextures HEADER;
 
@@ -88,7 +58,7 @@ public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContaine
         boolean lmbClicked = pButton == GLFW.GLFW_MOUSE_BUTTON_LEFT;
 
         //EZ Toggle
-        Pair<Integer, Integer> ezLocation = getEzLocation();
+        Pair<Integer, Integer> ezLocation = create_Ez_Stock_Ticker$getEzLocation();
         if (lmbClicked && pMouseX >= ezLocation.getFirst() && pMouseX <= ezLocation.getFirst() + 16 && pMouseY >= ezLocation.getSecond() && pMouseY <= ezLocation.getSecond() + 7) {
             boolean newValue = !ClientConfig.CONFIG.isEzStockTickerEnabled.get();
             ClientConfig.CONFIG.isEzStockTickerEnabled.set(newValue);
@@ -104,110 +74,107 @@ public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContaine
             value = "FIELD",
             target = "Lcom/simibubi/create/content/logistics/BigItemStack;count:I",
             ordinal = 1,
-            shift = At.Shift.AFTER
+            shift = At.Shift.BEFORE // Changed from AFTER to BEFORE
         )
     )
-    private void mouseClickedTransferInject(double pMouseX, double pMouseY, int pButton, CallbackInfoReturnable<Boolean> cir,  @Local(name = "current") int current, @Local(name = "existingOrder") BigItemStack existingOrder, @Local(name = "transfer") LocalIntRef transfer, @Local(name = "rmb") boolean rmb) {
+    private void mouseClickedTransferInject(double pMouseX,
+                                            double pMouseY,
+                                            int pButton,
+                                            CallbackInfoReturnable<Boolean> cir,
+                                            @Local(name = "current") int current,
+                                            @Local(name = "existingOrder") BigItemStack existingOrder,
+                                            @Local(name = "transfer") LocalIntRef transfer,
+                                            @Local(name = "rmb") boolean rmb,
+                                            @Local(name="entry") BigItemStack entry) {
         boolean isEzEnabled = ClientConfig.CONFIG.isEzStockTickerEnabled.get(); //Replace with client side config
-        if (rmb && isEzEnabled) {
+        if (rmb && isEzEnabled && (entry.stack.getMaxStackSize()  == 0)) { //Stack size 0 means its a factory logistics fluid
             transfer.set(existingOrder.count == 1 ? 1 : current / 2);
-            existingOrder.count = current - transfer.get(); //Apply in the updated value because bytecode shift doesent update locals in an expression
         }
     }
 
-    /**
-     * @author cake
-     * @reason Patching too many lines, so just overwrite :p
-     **/
-    @Overwrite
-    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        if (addressBox.mouseScrolled(mouseX, mouseY, scrollX, scrollY))
-            return true;
-
-        Couple<Integer> hoveredSlot = getHoveredSlot((int) mouseX, (int) mouseY);
-        boolean noHover = hoveredSlot == noneHovered;
-
-        if (noHover || hoveredSlot.getFirst() >= 0 && !hasShiftDown() && !hasControlDown() && getMaxScroll() != 0) {
-            int maxScroll = getMaxScroll();
-            int direction = (int) (Math.ceil(Math.abs(scrollY)) * -Math.signum(scrollY));
-            float newTarget = Mth.clamp(Math.round(itemScroll.getChaseTarget() + direction), 0, maxScroll);
-            itemScroll.chase(newTarget, 0.5, LerpedFloat.Chaser.EXP);
-            return true;
-        }
-
-        boolean orderClicked = hoveredSlot.getFirst() == -1;
-        boolean recipeClicked = hoveredSlot.getFirst() == -2;
-        BigItemStack entry = recipeClicked ? recipesToOrder.get(hoveredSlot.getSecond())
-            : orderClicked ? itemsToOrder.get(hoveredSlot.getSecond())
-            : displayedItems.get(hoveredSlot.getFirst()).get(hoveredSlot.getSecond());
-
-        boolean remove = scrollY < 0;
-        int stackSnapping = hasControlDown() ? 10 : (entry.stack.getMaxStackSize() / 4);
-        int transfer = Mth.ceil(Math.abs(scrollY)) * (hasControlDown() ? 10 : 1);
-
-        if (recipeClicked && entry instanceof CraftableBigItemStack cbis) {
-            requestCraftable(cbis, remove ? -transfer : transfer);
-            return true;
-        }
+    @Inject(
+        method = "mouseScrolled",
+        at = @At(
+            value = "FIELD",
+            target = "Lcom/simibubi/create/content/logistics/BigItemStack;count:I",
+            ordinal = 1, // This is the `existingOrder.count = current - transfer;` line
+            shift = At.Shift.BY,
+            by = -2
+        )
+    )
+    private void mouseScrolled_removeItems(double mouseX,
+                                           double mouseY,
+                                           double scrollX,
+                                           double scrollY,
+                                           CallbackInfoReturnable<Boolean> cir,
+                                           @Local(name="existingOrder") BigItemStack existingOrder,
+                                           @Local(name="current") int current,
+                                           @Local(name="transfer") LocalIntRef transfer,
+                                           @Local(name="entry") BigItemStack entry) {
 
         boolean isEzEnabled = ClientConfig.CONFIG.isEzStockTickerEnabled.get();
-
-        BigItemStack existingOrder = orderClicked ? entry : getOrderForItem(entry.stack);
-        if (existingOrder == null) {
-            if (itemsToOrder.size() >= cols || remove)
-                return true;
-            itemsToOrder.add(existingOrder = new BigItemStack(entry.stack.copyWithCount((hasShiftDown() && isEzEnabled) ? stackSnapping : 1), 0));
-            playUiSound(SoundEvents.WOOL_STEP, 0.75f, 1.2f);
-            playUiSound(SoundEvents.BAMBOO_WOOD_STEP, 0.75f, 0.8f);
-        }
-
-        int current = existingOrder.count;
-
         if (isEzEnabled) {
+            int stackSnapping = hasControlDown() ? 10 : (entry.stack.getMaxStackSize() / 4);
+
             if (hasShiftDown() || hasControlDown()) {
-                int target = ((Math.floorDiv(current, stackSnapping) + (remove ? -1 : 1)) * stackSnapping);
+                if (stackSnapping == 0) return; //Snap size 0 means its a factory logistics fluid
+                int target = ((Math.floorDiv(current, stackSnapping) - 1) * stackSnapping);
                 target = Math.max(1, target);
-                transfer = (remove ? -1 : 1) * (target - current);
-            } else if (remove) {
-                //Otherwise just prevent deleting the stack
-                int target = current + -transfer;
-                target = Math.max(1, target);
-                transfer = Math.abs(target - current);
+                transfer.set(current - target); // Set the amount to transfer
+            } else {
+                // Prevent scrolling to 0
+                int target = current - transfer.get();
+                if (target < 1) {
+                    transfer.set(current - 1); // Only transfer enough to reach 1
+                }
             }
         }
-
-        if (remove) {
-            existingOrder.count = current - transfer;
-            if (existingOrder.count <= 0) {
-                itemsToOrder.remove(existingOrder);
-                playUiSound(SoundEvents.WOOL_STEP, 0.75f, 1.8f);
-                playUiSound(SoundEvents.BAMBOO_WOOD_STEP, 0.75f, 1.8f);
-            } else if (existingOrder.count != current)
-                playUiSound(AllSoundEvents.SCROLL_VALUE.getMainEvent(), 0.25f, 1.2f);
-            return true;
-        }
-
-        existingOrder.count = current + Math.min(transfer, blockEntity.getLastClientsideStockSnapshotAsSummary()
-            .getCountOf(entry.stack) - current);
-
-        if (existingOrder.count != current && current != 0)
-            playUiSound(AllSoundEvents.SCROLL_VALUE.getMainEvent(), 0.25f, 1.2f);
-
-        return true;
     }
+
+    @Inject(
+        method = "mouseScrolled",
+        at = @At(
+            value = "FIELD",
+            target = "Lcom/simibubi/create/content/logistics/stockTicker/StockKeeperRequestScreen;blockEntity:Lcom/simibubi/create/content/logistics/stockTicker/StockTickerBlockEntity;",
+            shift = At.Shift.BY,
+            by = -5
+        )
+    )
+    private void mouseScrolled_addItems(double mouseX,
+                                        double mouseY,
+                                        double scrollX,
+                                        double scrollY,
+                                        CallbackInfoReturnable<Boolean> cir,
+                                        @Local(name="existingOrder") BigItemStack existingOrder,
+                                        @Local(name="current") int current,
+                                        @Local(name="transfer") LocalIntRef transfer,
+                                        @Local(name="entry") BigItemStack entry) {
+
+        boolean isEzEnabled = ClientConfig.CONFIG.isEzStockTickerEnabled.get();
+        if (isEzEnabled) { //Stack size 0 means its a factory logistics fluid
+            int stackSnapping = hasControlDown() ? 10 : (entry.stack.getMaxStackSize() / 4);
+
+            if (hasShiftDown() || hasControlDown()) {
+                if (stackSnapping == 0) return; //Snap size 0 means its a factory logistics fluid
+                int target = ((Math.floorDiv(current, stackSnapping) + 1) * stackSnapping);
+                target = Math.max(1, target);
+                transfer.set(target - current); // Set the amount to transfer
+            }
+        }
+    }
+
 
     @Inject(method = "renderBg", at = @At(value = "INVOKE", target = "Lcom/simibubi/create/foundation/gui/AllGuiTextures;render(Lnet/minecraft/client/gui/GuiGraphics;II)V", ordinal = 2, shift = At.Shift.AFTER))
     protected void renderForeground(GuiGraphics graphics, float partialTicks, int mouseX, int mouseY, CallbackInfo ci) {
-        //Render the "EZ" icon, shift the uv y by 7 px if enabled, 0 of enabled
         boolean isEzEnabled = ClientConfig.CONFIG.isEzStockTickerEnabled.get(); //Replace with client side config
-        Pair<Integer, Integer> ezLocation = getEzLocation();
+        Pair<Integer, Integer> ezLocation = create_Ez_Stock_Ticker$getEzLocation();
         int v = isEzEnabled ? 7 : 0;
         graphics.blit(STOCK_KEEPER_PATCH, ezLocation.getFirst(), ezLocation.getSecond(), 0, v, 16, 7);
     }
+
     @Inject(method = "renderForeground", at = @At("TAIL"))
     protected void renderForeground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks, CallbackInfo ci) {
-        //Render the "EZ" icon, shift the uv y by 7 px if enabled, 0 of enabled
-        Pair<Integer, Integer> ezLocation = getEzLocation();
+        Pair<Integer, Integer> ezLocation = create_Ez_Stock_Ticker$getEzLocation();
 
         if (mouseX >= ezLocation.getFirst() && mouseX <= ezLocation.getFirst() + 16 && mouseY >= ezLocation.getSecond() && mouseY <= ezLocation.getSecond() + 7) {
             graphics.renderComponentTooltip(font, ClientConfig.CONFIG.isEzStockTickerEnabled.get() ? List.of(
@@ -225,7 +192,8 @@ public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContaine
         }
     }
 
-    private Pair<Integer, Integer> getEzLocation() {
+    @Unique
+    private Pair<Integer, Integer> create_Ez_Stock_Ticker$getEzLocation() {
         int x = getGuiLeft();
         int y = getGuiTop() + HEADER.getHeight() + FOOTER.getHeight();
 
@@ -237,4 +205,5 @@ public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContaine
         int ezTooltipY = y - 13;
         return Pair.of(ezTooltipX, ezTooltipY);
     }
+
 }
