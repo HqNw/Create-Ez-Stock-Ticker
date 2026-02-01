@@ -50,7 +50,9 @@ public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContaine
 
     @Inject(method = "init", at = @At("TAIL"))
     private void init_tail(CallbackInfo ci) {
-        searchBox.setFocused(true);
+        if (ClientConfig.CONFIG.autoFocusSearchField.get()) {
+            searchBox.setFocused(true);
+        }
     }
 
     @Inject(method = "mouseClicked", at = @At("HEAD"), cancellable = true)

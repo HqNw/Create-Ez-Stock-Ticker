@@ -20,11 +20,13 @@ public class ClientConfig {
 
     //Store the config properties as public finals
     public final ModConfigSpec.ConfigValue<Boolean> isEzStockTickerEnabled;
+    public final ModConfigSpec.ConfigValue<Boolean> autoFocusSearchField;
 
     private ClientConfig(ModConfigSpec.Builder builder) {
         //Define each property
         //One property could be a message to log to the console when the game is initialised
         isEzStockTickerEnabled = builder.define("ez_stock_ticker_enabled", true);
+        autoFocusSearchField = builder.define("auto_focus_search_field", true);
     }
 
 }
